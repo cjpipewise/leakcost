@@ -13,24 +13,23 @@ data in the model.
 # NOT security. This file is downloaded by the browser and readable by anyone
 # who visits the site. Real access control is Cloudflare Access, in front of
 # the whole thing.
-AUTH_USER = 'spilladmin'
+AUTH_USER = 'leakadmin'
 AUTH_PASS = 'pipewise'
 
 # --- wording ---------------------------------------------------------------
 APP_TITLE = 'Release Cost Estimator'
 LOCK_PROMPT = 'Sign in to run the model.'
-DISCLAIMER = (
-    'Order-of-magnitude planning estimate, not a quotation or a liability '
-    'assessment. Hydrocarbon costs derive from Etkin (2004) EPA BOSCEM unit '
-    'costs, which were built from marine and inland-waterway response data; '
-    'onshore buried-pipeline response differs. Produced water is a separate '
-    'excavation-based model and is an engineering estimate, not a published '
-    'unit cost.')
+DISCLAIMER = ('Order-of-magnitude planning estimate, not a quotation or a '
+              'liability assessment. Based on Etkin (2004) EPA BOSCEM unit '
+              'costs. All figures in %d dollars.')
 
 # --- what the booth can change --------------------------------------------
 SHOW_UNIT_TOGGLE = True
 DEFAULT_UNITS = 'SI'                 # 'SI' or 'US'
 DEFAULT_CURRENCY = 'CAD'             # 'CAD' or 'USD'
+
+# Switching units pulls currency with it. Currency can then be changed alone.
+UNITS_CURRENCY = {'SI': 'CAD', 'US': 'USD'}
 SHOW_DIAGNOSTICS = False
 
 DEFAULT_SUBSTANCE = 'Crude oil'
@@ -233,7 +232,7 @@ SALT = dict(
 
 # --- plot appearance -------------------------------------------------------
 CHART_TITLE = 'Leak Cost Estimate'
-CHART_HEIGHT_PX = 640
+CHART_HEIGHT_PX = 620
 PLOT_MAX_VH = 58
 
 PLOT_RCPARAMS = {
@@ -261,5 +260,8 @@ SIGNAL = '#9E5408'
 
 # Chart-only colours. GRID is the plot gridlines, REF the dashed reference
 # volume markers. Darken these if the chart is washed out on a bright screen.
-GRID = '#AAB9C3'
-REF = '#8A9BA6'
+GRID = '#8FA1AD'
+GRID_MINOR = '#D3DDE4'
+REF = '#7A8D99'
+FIELD = '#EFF6FC'
+FIELD_EDGE = '#B7CFE3'

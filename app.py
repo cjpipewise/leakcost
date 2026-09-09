@@ -10,9 +10,10 @@ st.set_page_config(page_title=cfg.APP_TITLE, layout='wide',
                    initial_sidebar_state='collapsed')
 
 st.markdown(
-    '<style>:root{--sx-ink:%s;--sx-muted:%s;--sx-rule:%s;'
-    '--sx-deep:%s;--sx-signal:%s;}</style>'
-    % (cfg.INK, cfg.MUTED, cfg.RULE, cfg.DEEP, cfg.SIGNAL),
+    '<style>:root{--sx-ink:%s;--sx-muted:%s;--sx-rule:%s;--sx-deep:%s;'
+    '--sx-signal:%s;--sx-field:%s;--sx-field-edge:%s;}</style>'
+    % (cfg.INK, cfg.MUTED, cfg.RULE, cfg.DEEP, cfg.SIGNAL,
+       cfg.FIELD, cfg.FIELD_EDGE),
     unsafe_allow_html=True)
 
 st.markdown("""
@@ -38,7 +39,15 @@ st.markdown("""
   div[data-baseweb="select"] > div { min-height: 48px; font-size: 1.02rem; }
   .stNumberInput input, .stTextInput input { min-height: 42px;
       font-size: 0.98rem; font-variant-numeric: tabular-nums; }
-  .stNumberInput button { width: 34px; }
+  .stNumberInput button { width: 30px; }
+  .stNumberInput input, .stTextInput input,
+  div[data-baseweb="select"] > div {
+      background: var(--sx-field) !important;
+      border-color: var(--sx-field-edge) !important; }
+  .stNumberInput input:focus, .stTextInput input:focus {
+      border-color: var(--sx-deep) !important; }
+  .sx-tight .stNumberInput button { display: none; }
+  .sx-tight .stNumberInput input { padding-right: 6px; }
   label p { font-size: 0.85rem !important; font-weight: 600 !important;
             color: var(--sx-ink) !important; }
   .stButton button, .stDownloadButton button { min-height: 42px;
@@ -67,8 +76,16 @@ if not ss.get('unlocked'):
 
 
 def defaults():
-    return [dict(name=n, pct=p, hours=h, override=0.0)
-            for n, p, h in cfg.LEAK_SCENARIOS]
+    out = []
+    for n, p, h in cfg.LEAK_SCENARIOS:
+        unit = 'days' if h >= 48.0 else 'hours'
+        out.append(dict(name=n, pct=p, unit=unit, override=0.0,
+                        dur=h / 24.0 if unit == 'days' else h))
+    return out
+
+
+def to_hours(row):
+    return row['dur'] * 24.0 if row['unit'] == 'days' else row['dur']
 
 
 def duration(hours):
@@ -82,21 +99,30 @@ def duration(hours):
 ss.setdefault('rows', defaults())
 ss.setdefault('seq', 0)
 
+ss.setdefault('units', cfg.DEFAULT_UNITS)
+ss.setdefault('currency', cfg.DEFAULT_CURRENCY)
+
 head, unit_col, cur_col, lock_col = st.columns([5, 1.6, 1.6, 1.1],
                                                vertical_alignment='center')
 with head:
     st.markdown('<p class="sx-title">%s</p>' % cfg.APP_TITLE,
                 unsafe_allow_html=True)
 with unit_col:
-    units = (st.segmented_control('Units', ['SI', 'US'],
-                                  default=cfg.DEFAULT_UNITS,
+    units = (st.segmented_control('Units', ['SI', 'US'], default=ss['units'],
                                   label_visibility='collapsed')
-             if cfg.SHOW_UNIT_TOGGLE else cfg.DEFAULT_UNITS) or cfg.DEFAULT_UNITS
+             if cfg.SHOW_UNIT_TOGGLE else cfg.DEFAULT_UNITS) or ss['units']
+# Changing units pulls the currency with it. Changing currency does not pull
+# the units, so an odd pairing stays possible if someone wants it.
+if units != ss['units']:
+    ss['units'] = units
+    ss['currency'] = cfg.UNITS_CURRENCY[units]
+    st.rerun()
 with cur_col:
     currency = st.segmented_control('Currency', ['CAD', 'USD'],
-                                    default=cfg.DEFAULT_CURRENCY,
+                                    default=ss['currency'],
                                     label_visibility='collapsed') \
-        or cfg.DEFAULT_CURRENCY
+        or ss['currency']
+ss['currency'] = currency
 with lock_col:
     if st.button('Lock', width='stretch'):
         ss['unlocked'] = False
@@ -162,19 +188,23 @@ with panel:
                                     key=k + 'n', label_visibility='collapsed')
         if rm.button('\u2715', key=k + 'x', width='stretch'):
             drop = i
-        c1, c2, c3 = st.columns(3)
+        st.markdown('<div class="sx-tight">', unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns([1.1, 1.1, 1.15, 1.3])
         lo, hi = cfg.SCENARIO_PCT_RANGE
         row['pct'] = c1.number_input('% flow', min_value=lo, max_value=hi,
                                      value=float(row['pct']), step=0.1,
                                      format='%.3f', key=k + 'p')
-        lo, hi = cfg.SCENARIO_HOURS_RANGE
-        row['hours'] = c2.number_input('Hours', min_value=lo, max_value=hi,
-                                       value=float(row['hours']), step=1.0,
-                                       format='%.2f', key=k + 'h')
-        row['override'] = c3.number_input('Cost (0=auto)', min_value=0.0,
+        row['dur'] = c2.number_input('Duration', min_value=0.01,
+                                     max_value=1200.0, value=float(row['dur']),
+                                     step=1.0, format='%.2f', key=k + 'd')
+        row['unit'] = c3.selectbox('Unit', ['hours', 'days'],
+                                   index=0 if row['unit'] == 'hours' else 1,
+                                   key=k + 'u')
+        row['override'] = c4.number_input('Cost (0=auto)', min_value=0.0,
                                           value=float(row['override']),
                                           step=1000.0, format='%.0f',
                                           key=k + 'c')
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if drop is not None:
         ss['rows'].pop(drop)
@@ -183,8 +213,8 @@ with panel:
 
     if len(ss['rows']) < cfg.MAX_SCENARIOS:
         if st.button('Add scenario', width='stretch'):
-            ss['rows'].append(dict(name='New scenario', pct=1.0, hours=24.0,
-                                   override=0.0))
+            ss['rows'].append(dict(name='New scenario', pct=1.0, dur=24.0,
+                                   unit='hours', override=0.0))
             ss['seq'] += 1
             st.rerun()
 
@@ -196,9 +226,10 @@ def cost_at(v):
 
 scenarios = []
 for row in ss['rows']:
-    vol = max(ss.flow_m3d * row['pct'] / 100.0 * row['hours'] / 24.0, 1e-9)
+    hours = to_hours(row)
+    vol = max(ss.flow_m3d * row['pct'] / 100.0 * hours / 24.0, 1e-9)
     total = row['override'] if row['override'] > 0 else cost_at(vol)['total']
-    detail = '%g%% of flow \u00b7 %s' % (row['pct'], duration(row['hours']))
+    detail = '%g%% of flow \u00b7 %s' % (row['pct'], duration(hours))
     scenarios.append((row['name'], detail, vol, total, row['override'] > 0))
 
 if scenarios:
@@ -261,5 +292,6 @@ with view:
         file_name='leak_cost_%s.svg' % substance.split()[0].lower(),
         mime='image/svg+xml', width='stretch')
 
-    st.markdown('<p class="sx-note">%s</p>' % cfg.DISCLAIMER,
+    st.markdown('<p class="sx-note">%s</p>'
+                % (cfg.DISCLAIMER % cfg.MODEL['target_year']),
                 unsafe_allow_html=True)

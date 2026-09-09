@@ -81,14 +81,29 @@ def chart_svg(volumes, totals, scenarios, refs, units='SI', currency='CAD',
                  % (ML - 44, cfg.MUTED, subtitle))
 
     for gx in _decades(x_lo, x_hi):
+        for k in range(2, 10):
+            mx = gx * k
+            if mx < x_hi:
+                p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                         'stroke-width="0.7"/>'
+                         % (px(mx), MT, px(mx), H - MB, cfg.GRID_MINOR))
+    for gy in _decades(y_lo, y_hi):
+        for k in range(2, 10):
+            my = gy * k
+            if my < y_hi:
+                p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                         'stroke-width="0.7"/>'
+                         % (ML, py(my), W - MR, py(my), cfg.GRID_MINOR))
+
+    for gx in _decades(x_lo, x_hi):
         p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
-                 'stroke-width="1"/>' % (px(gx), MT, px(gx), H - MB, cfg.GRID))
+                 'stroke-width="1.3"/>' % (px(gx), MT, px(gx), H - MB, cfg.GRID))
         p.append('<text x="%g" y="%g" font-size="13" fill="%s" '
                  'text-anchor="middle">%s</text>'
                  % (px(gx), H - MB + 24, cfg.MUTED, _fmt_vol(gx)))
     for gy in _decades(y_lo, y_hi):
         p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
-                 'stroke-width="1"/>' % (ML, py(gy), W - MR, py(gy), cfg.GRID))
+                 'stroke-width="1.3"/>' % (ML, py(gy), W - MR, py(gy), cfg.GRID))
         p.append('<text x="%g" y="%g" font-size="13" fill="%s" '
                  'text-anchor="end">%s</text>'
                  % (ML - 12, py(gy) + 4, cfg.MUTED, money(gy, symbol)))
@@ -150,29 +165,55 @@ def chart_svg(volumes, totals, scenarios, refs, units='SI', currency='CAD',
 
     rows.sort(key=lambda r: r[0])
 
-    ly = MT + 16
-    for i, label, detail, vx, total, custom in rows:
-        col = cfg.SIGNAL if custom else cfg.MUTED
-        p.append('<g class="lg" data-i="%d">' % i)
-        p.append('<rect x="%g" y="%g" width="562" height="21" fill="%s" '
-                 'opacity="0" class="lgbg"/>' % (ML + 8, ly - 15, cfg.PANEL))
-        p.append('<circle cx="%g" cy="%g" r="7.5" fill="%s"/>'
-                 % (ML + 22, ly - 5, col))
-        p.append('<text x="%g" y="%g" font-size="11" font-weight="700" '
-                 'fill="white" text-anchor="middle">%d</text>'
-                 % (ML + 22, ly - 1, i + 1))
-        p.append('<text x="%g" y="%g" font-size="13.5" font-weight="600" '
-                 'fill="%s">%s</text>' % (ML + 38, ly, col, label))
-        p.append('<text x="%g" y="%g" font-size="13" fill="%s">%s</text>'
-                 % (ML + 190, ly, col, detail))
-        p.append('<text x="%g" y="%g" font-size="13" fill="%s" '
-                 'text-anchor="end">%s %s</text>'
-                 % (ML + 452, ly, col, _fmt_vol(vx), vunit))
-        p.append('<text x="%g" y="%g" font-size="13.5" font-weight="600" '
-                 'fill="%s" text-anchor="end">%s</text>'
-                 % (ML + 560, ly, col, money(total, symbol)))
-        p.append('</g>')
-        ly += 23
+    if rows:
+        LX, LY, LW, RH = ML + 10, MT + 8, 472.0, 21.0
+        cols = (LX + 20, LX + 34, LX + 156, LX + 352, LX + 462)
+        LH = RH * (len(rows) + 1)
+        p.append('<rect x="%g" y="%g" width="%g" height="%g" fill="white" '
+                 'fill-opacity="0.94" stroke="%s" stroke-width="1.2" rx="3"/>'
+                 % (LX, LY, LW, LH, cfg.GRID))
+        p.append('<rect x="%g" y="%g" width="%g" height="%g" fill="%s" '
+                 'fill-opacity="0.75"/>' % (LX, LY, LW, RH, cfg.PANEL))
+        for hx, ha, ht in ((cols[1], 'start', 'Scenario'),
+                           (cols[2], 'start', 'Rate and duration'),
+                           (cols[3], 'end', 'Volume (%s)' % vunit),
+                           (cols[4], 'end', 'Cost')):
+            p.append('<text x="%g" y="%g" font-size="11" font-weight="700" '
+                     'fill="%s" text-anchor="%s" letter-spacing="0.4">%s</text>'
+                     % (hx, LY + 14, cfg.MUTED, ha, ht.upper()))
+        for r in range(len(rows) + 1):
+            p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                     'stroke-width="0.8"/>'
+                     % (LX, LY + RH * r, LX + LW, LY + RH * r, cfg.GRID_MINOR))
+        for cx in cols[2:]:
+            off = -8 if cx == cols[2] else 10
+            p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                     'stroke-width="0.8"/>'
+                     % (cx + off, LY, cx + off, LY + LH, cfg.GRID_MINOR))
+
+        for j, (i, label, detail, vx, total, custom) in enumerate(rows):
+            col = cfg.SIGNAL if custom else cfg.INK
+            ty = LY + RH * (j + 1) + 14.5
+            p.append('<g class="lg" data-i="%d">' % i)
+            p.append('<rect x="%g" y="%g" width="%g" height="%g" fill="%s" '
+                     'opacity="0" class="lgbg"/>'
+                     % (LX + 1, LY + RH * (j + 1) + 1, LW - 2, RH - 2, cfg.PANEL))
+            p.append('<circle cx="%g" cy="%g" r="7.5" fill="%s"/>'
+                     % (cols[0], ty - 4.5, col))
+            p.append('<text x="%g" y="%g" font-size="11" font-weight="700" '
+                     'fill="white" text-anchor="middle">%d</text>'
+                     % (cols[0], ty - 0.8, i + 1))
+            p.append('<text x="%g" y="%g" font-size="12.5" font-weight="600" '
+                     'fill="%s">%s</text>' % (cols[1], ty, col, label))
+            p.append('<text x="%g" y="%g" font-size="12.5" fill="%s">%s</text>'
+                     % (cols[2], ty, cfg.MUTED if not custom else col, detail))
+            p.append('<text x="%g" y="%g" font-size="12.5" fill="%s" '
+                     'text-anchor="end">%s</text>'
+                     % (cols[3], ty, col, _fmt_vol(vx)))
+            p.append('<text x="%g" y="%g" font-size="12.5" font-weight="600" '
+                     'fill="%s" text-anchor="end">%s</text>'
+                     % (cols[4], ty, col, money(total, symbol)))
+            p.append('</g>')
 
     if interactive:
         p.append('<g id="hov" style="display:none">')
@@ -197,7 +238,8 @@ def chart_html(volumes, totals, scenarios, refs, units='SI', currency='CAD',
                title='Leak Cost Estimate', subtitle=''):
     svg, meta = chart_svg(volumes, totals, scenarios, refs, units, currency,
                           title, subtitle, interactive=True)
-    return """<div id="wrap" style="position:relative;width:100%%">%s
+    return """<div id="wrap" style="position:relative;width:100%%;
+ max-width:%dpx;margin:0 auto">%s
 <div id="tip" style="position:absolute;display:none;pointer-events:none;
  background:%s;color:#fff;padding:6px 10px;border-radius:6px;font-size:12.5px;
  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -270,4 +312,5 @@ def chart_html(volumes, totals, scenarios, refs, units='SI', currency='CAD',
   hov.style.display='none'; tip.style.display='none';
  });
 })();
-</script>""" % (svg, cfg.INK, json.dumps(meta))
+</script>""" % (int(cfg.CHART_HEIGHT_PX * W / H) - 8, svg, cfg.INK,
+              json.dumps(meta))
