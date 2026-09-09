@@ -1,0 +1,9 @@
+{
+  "name": "Release Cost Estimator",
+  "short_name": "Release Cost",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1E4E63",
+  "icons": []
+}

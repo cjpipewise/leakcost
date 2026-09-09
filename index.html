@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#1E4E63" />
+<title>Release Cost Estimator</title>
+<link rel="manifest" href="./manifest.json" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.8.1/build/stlite.css" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #FFFFFF; }
+  #root { height: 100%; }
+  #boot {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 clamp(2rem, 9vw, 9rem); background: #FFFFFF;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #14202B;
+  }
+  #boot h1 { margin: 0; font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+             font-weight: 620; letter-spacing: -0.02em; }
+  #boot .track { margin: 1.9rem 0 0.9rem; height: 2px; background: #DCE4E9; }
+  #boot .fill { height: 100%; width: 0; background: #1E4E63;
+                transition: width 900ms cubic-bezier(.4,0,.2,1); }
+  #boot .stage { font-size: 0.88rem; color: #5C7180; }
+  #boot.done { opacity: 0; pointer-events: none; transition: opacity 320ms ease; }
+  @media (prefers-reduced-motion: reduce) { #boot .fill, #boot.done { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="boot">
+  <h1>Release Cost Estimator</h1>
+  <div class="track"><div class="fill" id="boot-fill"></div></div>
+  <div class="stage" id="boot-stage">Loading</div>
+</div>
+
+<div id="root"></div>
+
+<script type="module">
+import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.8.1/build/stlite.js";
+
+const V = "1";
+mount(
+  {
+    requirements: ["numpy"],
+    entrypoint: "app.py",
+    files: {
+      "app.py":          { url: "./app.py?v=" + V },
+      "spill_config.py": { url: "./spill_config.py?v=" + V },
+      "spill_cost.py":   { url: "./spill_cost.py?v=" + V },
+      "chart_svg.py":    { url: "./chart_svg.py?v=" + V },
+    },
+    streamlitConfig: {
+      "theme.base": "light",
+      "theme.primaryColor": "#1E4E63",
+      "theme.backgroundColor": "#FFFFFF",
+      "theme.secondaryBackgroundColor": "#EDF1F4",
+      "theme.textColor": "#14202B",
+    },
+  },
+  document.getElementById("root")
+);
+
+const fill = document.getElementById("boot-fill");
+const stage = document.getElementById("boot-stage");
+const steps = [[12, "Starting Python"], [45, "Loading numpy"],
+               [72, "Loading matplotlib"], [90, "Building the model"]];
+let i = 0;
+const tick = setInterval(() => {
+  if (i >= steps.length) return clearInterval(tick);
+  fill.style.width = steps[i][0] + "%";
+  stage.textContent = steps[i][1];
+  i++;
+}, 1100);
+
+const ready = setInterval(() => {
+  if (document.querySelector('[data-testid="stAppViewContainer"]')) {
+    clearInterval(ready); clearInterval(tick);
+    fill.style.width = "100%";
+    document.getElementById("boot").classList.add("done");
+  }
+}, 300);
+</script>
+</body>
+</html>
