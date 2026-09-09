@@ -36,7 +36,7 @@ def _decades(lo, hi):
 
 def _fmt_vol(v):
     if v >= 1000:
-        return '%,.0f'.replace('%,', '{:,}').format(int(round(v)))
+        return '{:,}'.format(int(round(v)))
     if v >= 10:
         return '%.0f' % v
     if v >= 1:
@@ -130,69 +130,50 @@ def chart_svg(volumes, totals, scenarios, refs, units='SI', currency='CAD',
     p.append('<polyline points="%s" fill="none" stroke="%s" stroke-width="3.4" '
              'stroke-linecap="round" stroke-linejoin="round"/>' % (pts, cfg.DEEP))
 
-    rows, placed = [], []
-    order = ([i for i, s in enumerate(scenarios) if not s[4]]
-             + [i for i, s in enumerate(scenarios) if s[4]])
-    marks = []
-    for i in order:
-        label, detail, vol_m3, total, custom = scenarios[i]
+    rows = []
+    for i, (label, detail, vol_m3, total) in enumerate(scenarios):
         vx = vol_m3 * conv
         if not (x_lo <= vx <= x_hi):
             continue
-        ax, ay = px(vx), py(total)
-        mx, my = ax, ay
-        for step in range(1, 7):
-            if all((mx - qx) ** 2 + (my - qy) ** 2 >= 30.0 ** 2
-                   for qx, qy in placed):
-                break
-            mx, my = ax + 26.0 * step * 0.86, ay - 26.0 * step * 0.5
-        placed.append((mx, my))
-        marks.append((i, ax, ay, mx, my, cfg.SIGNAL if custom else cfg.INK))
-        rows.append((i, label, detail, vol_m3 * conv, total, custom))
-
-    for i, ax, ay, mx, my, col in marks:
+        cx, cy = px(vx), py(total)
         p.append('<g class="mk" data-i="%d">' % i)
-        if (mx - ax) ** 2 + (my - ay) ** 2 > 1.0:
-            p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
-                     'stroke-width="1.4"/>' % (ax, ay, mx, my, col))
-            p.append('<circle cx="%g" cy="%g" r="3" fill="%s"/>' % (ax, ay, col))
         p.append('<circle cx="%g" cy="%g" r="13" fill="%s" stroke="white" '
-                 'stroke-width="2.4"/>' % (mx, my, col))
+                 'stroke-width="2.4"/>' % (cx, cy, cfg.INK))
         p.append('<text x="%g" y="%g" font-size="12" font-weight="700" '
                  'fill="white" text-anchor="middle">%d</text>'
-                 % (mx, my + 4, i + 1))
+                 % (cx, cy + 4, i + 1))
         p.append('</g>')
+        rows.append((i, label, detail, vx, total))
 
-    rows.sort(key=lambda r: r[0])
 
     if rows:
-        LX, LY, LW, RH = ML + 10, MT + 8, 472.0, 21.0
-        cols = (LX + 20, LX + 34, LX + 156, LX + 352, LX + 462)
+        LX, LY, LW, RH = ML + 10, MT + 8, 536.0, 21.0
+        cols = (LX + 20, LX + 34, LX + 172, LX + 410, LX + 524)
         LH = RH * (len(rows) + 1)
         p.append('<rect x="%g" y="%g" width="%g" height="%g" fill="white" '
                  'fill-opacity="0.94" stroke="%s" stroke-width="1.2" rx="3"/>'
                  % (LX, LY, LW, LH, cfg.GRID))
         p.append('<rect x="%g" y="%g" width="%g" height="%g" fill="%s" '
                  'fill-opacity="0.75"/>' % (LX, LY, LW, RH, cfg.PANEL))
-        for hx, ha, ht in ((cols[1], 'start', 'Scenario'),
-                           (cols[2], 'start', 'Rate and duration'),
-                           (cols[3], 'end', 'Volume (%s)' % vunit),
-                           (cols[4], 'end', 'Cost')):
+        for hx, ha, ht in ((cols[1], 'start', 'SCENARIO'),
+                           (cols[2], 'start', 'RATE AND DURATION'),
+                           (cols[3], 'end', 'VOLUME (%s)' % vunit),
+                           (cols[4], 'end', 'COST')):
             p.append('<text x="%g" y="%g" font-size="11" font-weight="700" '
                      'fill="%s" text-anchor="%s" letter-spacing="0.4">%s</text>'
-                     % (hx, LY + 14, cfg.MUTED, ha, ht.upper()))
+                     % (hx, LY + 14, cfg.MUTED, ha, ht))
         for r in range(len(rows) + 1):
             p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
                      'stroke-width="0.8"/>'
                      % (LX, LY + RH * r, LX + LW, LY + RH * r, cfg.GRID_MINOR))
         for cx in cols[2:]:
-            off = -8 if cx == cols[2] else 10
+            off = -12 if cx == cols[2] else 14
             p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
                      'stroke-width="0.8"/>'
                      % (cx + off, LY, cx + off, LY + LH, cfg.GRID_MINOR))
 
-        for j, (i, label, detail, vx, total, custom) in enumerate(rows):
-            col = cfg.SIGNAL if custom else cfg.INK
+        for j, (i, label, detail, vx, total) in enumerate(rows):
+            col = cfg.INK
             ty = LY + RH * (j + 1) + 14.5
             p.append('<g class="lg" data-i="%d">' % i)
             p.append('<rect x="%g" y="%g" width="%g" height="%g" fill="%s" '
@@ -206,7 +187,7 @@ def chart_svg(volumes, totals, scenarios, refs, units='SI', currency='CAD',
             p.append('<text x="%g" y="%g" font-size="12.5" font-weight="600" '
                      'fill="%s">%s</text>' % (cols[1], ty, col, label))
             p.append('<text x="%g" y="%g" font-size="12.5" fill="%s">%s</text>'
-                     % (cols[2], ty, cfg.MUTED if not custom else col, detail))
+                     % (cols[2], ty, cfg.MUTED, detail))
             p.append('<text x="%g" y="%g" font-size="12.5" fill="%s" '
                      'text-anchor="end">%s</text>'
                      % (cols[3], ty, col, _fmt_vol(vx)))

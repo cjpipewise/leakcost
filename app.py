@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
@@ -48,6 +50,8 @@ st.markdown("""
       border-color: var(--sx-deep) !important; }
   .sx-tight .stNumberInput button { display: none; }
   .sx-tight .stNumberInput input { padding-right: 6px; }
+  hr.sx-div { border: none; border-top: 1px solid var(--sx-rule);
+              margin: 0.55rem 0 0.35rem; }
   label p { font-size: 0.85rem !important; font-weight: 600 !important;
             color: var(--sx-ink) !important; }
   .stButton button, .stDownloadButton button { min-height: 42px;
@@ -79,13 +83,20 @@ def defaults():
     out = []
     for n, p, h in cfg.LEAK_SCENARIOS:
         unit = 'days' if h >= 48.0 else 'hours'
-        out.append(dict(name=n, pct=p, unit=unit, override=0.0,
+        out.append(dict(name=n, pct=p, unit=unit,
                         dur=h / 24.0 if unit == 'days' else h))
     return out
 
 
 def to_hours(row):
     return row['dur'] * 24.0 if row['unit'] == 'days' else row['dur']
+
+
+def bounds(lo, hi, factor, value):
+    # Converted limits are rounded so the validation message reads cleanly in
+    # imperial rather than quoting a full-precision conversion.
+    lo, hi = math.ceil(lo / factor), math.floor(hi / factor)
+    return float(lo), float(hi), float(min(max(value / factor, lo), hi))
 
 
 def duration(hours):
@@ -141,13 +152,13 @@ with panel:
 
     ss.setdefault('flow_m3d', cfg.DEFAULT_FLOW_M3D)
     lo, hi = cfg.FLOW_RANGE_M3D
+    f = M3_PER_BBL if us else 1.0
+    lo, hi, val = bounds(lo, hi, f, ss.flow_m3d)
     shown = st.number_input(
         'Flow rate (%s)' % ('BBL/day' if us else 'm\u00b3/day'),
-        min_value=lo / M3_PER_BBL if us else lo,
-        max_value=hi / M3_PER_BBL if us else hi,
-        value=float(ss.flow_m3d / M3_PER_BBL if us else ss.flow_m3d),
+        min_value=lo, max_value=hi, value=val,
         step=100.0, format='%.0f', key='flow_%s' % units)
-    ss.flow_m3d = shown * M3_PER_BBL if us else shown
+    ss.flow_m3d = shown * f
 
     st.markdown('<p class="sx-group">Location</p>', unsafe_allow_html=True)
 
@@ -157,12 +168,13 @@ with panel:
 
     ss.setdefault('remote_km', cfg.DEFAULT_REMOTENESS_KM)
     lo, hi = cfg.REMOTENESS_RANGE_KM
+    f = 1.609344 if us else 1.0
+    lo, hi, val = bounds(lo, hi, f, ss.remote_km)
     shown = st.number_input(
         'Distance from road access (%s)' % ('miles' if us else 'km'),
-        min_value=lo, max_value=hi / 1.609 if us else hi,
-        value=float(ss.remote_km / 1.609 if us else ss.remote_km),
+        min_value=lo, max_value=hi, value=val,
         step=1.0, format='%.1f', key='remote_%s' % units)
-    ss.remote_km = shown * 1.609 if us else shown
+    ss.remote_km = shown * f
 
     juris = list(cfg.JURISDICTION)
     jurisdiction = st.selectbox('Jurisdiction', juris,
@@ -189,7 +201,7 @@ with panel:
         if rm.button('\u2715', key=k + 'x', width='stretch'):
             drop = i
         st.markdown('<div class="sx-tight">', unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns([1.1, 1.1, 1.15, 1.3])
+        c1, c2, c3 = st.columns([1.0, 1.0, 1.15])
         lo, hi = cfg.SCENARIO_PCT_RANGE
         row['pct'] = c1.number_input('% flow', min_value=lo, max_value=hi,
                                      value=float(row['pct']), step=0.1,
@@ -200,11 +212,7 @@ with panel:
         row['unit'] = c3.selectbox('Unit', ['hours', 'days'],
                                    index=0 if row['unit'] == 'hours' else 1,
                                    key=k + 'u')
-        row['override'] = c4.number_input('Cost (0=auto)', min_value=0.0,
-                                          value=float(row['override']),
-                                          step=1000.0, format='%.0f',
-                                          key=k + 'c')
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div><hr class="sx-div">', unsafe_allow_html=True)
 
     if drop is not None:
         ss['rows'].pop(drop)
@@ -214,7 +222,7 @@ with panel:
     if len(ss['rows']) < cfg.MAX_SCENARIOS:
         if st.button('Add scenario', width='stretch'):
             ss['rows'].append(dict(name='New scenario', pct=1.0, dur=24.0,
-                                   unit='hours', override=0.0))
+                                   unit='hours'))
             ss['seq'] += 1
             st.rerun()
 
@@ -228,9 +236,8 @@ scenarios = []
 for row in ss['rows']:
     hours = to_hours(row)
     vol = max(ss.flow_m3d * row['pct'] / 100.0 * hours / 24.0, 1e-9)
-    total = row['override'] if row['override'] > 0 else cost_at(vol)['total']
     detail = '%g%% of flow \u00b7 %s' % (row['pct'], duration(hours))
-    scenarios.append((row['name'], detail, vol, total, row['override'] > 0))
+    scenarios.append((row['name'], detail, vol, cost_at(vol)['total']))
 
 if scenarios:
     vols = np.asarray([s[2] for s in scenarios])
@@ -259,8 +266,7 @@ with view:
             ref = cost_at(worst[2])
             blocks = ['<div><div class="sx-value">%s</div>'
                       '<div class="sx-sub">%.2f %s</div>'
-                      '<div class="sx-where">%s &mdash; largest loaded</div>'
-                      '</div>'
+                      '<div class="sx-where">%s</div></div>'
                       % (money(worst[3], symbol), wv,
                          'BBL' if us else 'm\u00b3', worst[0])]
             blocks.append('<div><div class="sx-where">Response %s &nbsp; '

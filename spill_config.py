@@ -47,10 +47,9 @@ REMOTENESS_RANGE_KM = (0.0, 300.0)
 # Volume = flow * pct/100 * hours/24, so both move with the pipeline's flow.
 LEAK_SCENARIOS = [
     ('Pinhole', 0.5, 1440.0),
-    ('Seep', 1.0, 336.0),
     ('Small leak', 1.5, 72.0),
     ('Large leak', 3.0, 12.0),
-    ('Rupture', 10.0, 1.0),
+    ('Rupture', 100.0, 0.25),
 ]
 
 SCENARIO_PCT_RANGE = (0.001, 100.0)
@@ -66,6 +65,7 @@ CURVE_SPAN_DECADES = 1.2
 # Familiar volumes marked on the x axis for scale. Cubic metres.
 REFERENCE_VOLUMES = [
     ('1 barrel', 0.159),
+    ('IBC tote', 1.0),
     ('Tanker truck', 35.0),
     ('Rail car', 110.0),
     ('Olympic pool', 2500.0),
