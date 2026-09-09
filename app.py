@@ -147,8 +147,11 @@ with panel:
     st.markdown('<p class="sx-group">Pipeline</p>', unsafe_allow_html=True)
 
     subs = list(cfg.SUBSTANCE_GRADE)
+    ss.setdefault('substance', cfg.DEFAULT_SUBSTANCE)
     substance = st.selectbox('Product', subs,
-                             index=subs.index(cfg.DEFAULT_SUBSTANCE))
+                             index=subs.index(ss['substance']),
+                             key='sel_substance')
+    ss['substance'] = substance
 
     ss.setdefault('flow_m3d', cfg.DEFAULT_FLOW_M3D)
     lo, hi = cfg.FLOW_RANGE_M3D
@@ -163,8 +166,11 @@ with panel:
     st.markdown('<p class="sx-group">Location</p>', unsafe_allow_html=True)
 
     terrains = list(cfg.TERRAIN)
+    ss.setdefault('terrain', cfg.DEFAULT_TERRAIN)
     terrain = st.selectbox('Terrain', terrains,
-                           index=terrains.index(cfg.DEFAULT_TERRAIN))
+                           index=terrains.index(ss['terrain']),
+                           key='sel_terrain')
+    ss['terrain'] = terrain
 
     ss.setdefault('remote_km', cfg.DEFAULT_REMOTENESS_KM)
     lo, hi = cfg.REMOTENESS_RANGE_KM
@@ -177,8 +183,11 @@ with panel:
     ss.remote_km = shown * f
 
     juris = list(cfg.JURISDICTION)
+    ss.setdefault('jurisdiction', cfg.DEFAULT_JURISDICTION)
     jurisdiction = st.selectbox('Jurisdiction', juris,
-                                index=juris.index(cfg.DEFAULT_JURISDICTION))
+                                index=juris.index(ss['jurisdiction']),
+                                key='sel_jurisdiction')
+    ss['jurisdiction'] = jurisdiction
 
     st.markdown('<p class="sx-group">Scenarios</p>', unsafe_allow_html=True)
 
@@ -194,7 +203,7 @@ with panel:
 
     drop = None
     for i, row in enumerate(ss['rows']):
-        k = 'r%d_%d_%s' % (ss['seq'], i, units)
+        k = 'r%d_%d' % (ss['seq'], i)
         nm, rm = st.columns([5, 1], vertical_alignment='bottom')
         row['name'] = nm.text_input('Name', value=row['name'],
                                     key=k + 'n', label_visibility='collapsed')
@@ -225,6 +234,10 @@ with panel:
                                    unit='hours'))
             ss['seq'] += 1
             st.rerun()
+
+    st.markdown('<p class="sx-group">Chart</p>', unsafe_allow_html=True)
+    show_refs = st.toggle('Volume benchmarks', value=cfg.SHOW_BENCHMARKS,
+                          key='show_refs')
 
 
 def cost_at(v):
@@ -285,12 +298,13 @@ with view:
                     unsafe_allow_html=True)
     save_slot = save_col.empty()
 
-    components.html(chart_html(grid, totals, scenarios, cfg.REFERENCE_VOLUMES,
+    refs = cfg.REFERENCE_VOLUMES if show_refs else []
+    components.html(chart_html(grid, totals, scenarios, refs,
                                units=units, currency=currency,
                                title=cfg.CHART_TITLE, subtitle=subtitle),
                     height=cfg.CHART_HEIGHT_PX, scrolling=False)
 
-    static, _ = chart_svg(grid, totals, scenarios, cfg.REFERENCE_VOLUMES,
+    static, _ = chart_svg(grid, totals, scenarios, refs,
                           units=units, currency=currency,
                           title=cfg.CHART_TITLE, subtitle=subtitle)
     save_slot.download_button(

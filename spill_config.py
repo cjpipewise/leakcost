@@ -62,7 +62,11 @@ NO_SCENARIO_SPAN = (0.001, 10.0)
 # How far either side of the scenario span the plotted curve runs.
 CURVE_SPAN_DECADES = 1.2
 
-# Familiar volumes marked on the x axis for scale. Cubic metres.
+# Familiar volumes marked on the x axis for scale. Cubic metres. The toggle
+# below sets whether they are drawn by default; turn them off for a chart that
+# is going into a report.
+SHOW_BENCHMARKS = True
+
 REFERENCE_VOLUMES = [
     ('1 barrel', 0.159),
     ('IBC tote', 1.0),
