@@ -62,22 +62,6 @@ st.markdown("""
 
 ss = st.session_state
 
-if not ss.get('unlocked'):
-    _, mid, _ = st.columns([1, 1.1, 1])
-    with mid:
-        st.markdown('<p class="sx-title">%s</p><p class="sx-where">%s</p>'
-                    % (cfg.APP_TITLE, cfg.LOCK_PROMPT), unsafe_allow_html=True)
-        with st.form('unlock', border=False):
-            who = st.text_input('User')
-            pw = st.text_input('Password', type='password')
-            if st.form_submit_button('Sign in', width='stretch'):
-                if who.strip() == cfg.AUTH_USER and pw == cfg.AUTH_PASS:
-                    ss['unlocked'] = True
-                    st.rerun()
-                else:
-                    st.error('That user and password do not match.')
-    st.stop()
-
 
 def defaults():
     out = []
@@ -113,8 +97,8 @@ ss.setdefault('seq', 0)
 ss.setdefault('units', cfg.DEFAULT_UNITS)
 ss.setdefault('currency', cfg.DEFAULT_CURRENCY)
 
-head, unit_col, cur_col, lock_col = st.columns([5, 1.6, 1.6, 1.1],
-                                               vertical_alignment='center')
+head, unit_col, cur_col, reset_col = st.columns([5, 1.6, 1.6, 1.1],
+                                                vertical_alignment='center')
 with head:
     st.markdown('<p class="sx-title">%s</p>' % cfg.APP_TITLE,
                 unsafe_allow_html=True)
@@ -134,9 +118,13 @@ with cur_col:
                                     label_visibility='collapsed') \
         or ss['currency']
 ss['currency'] = currency
-with lock_col:
-    if st.button('Lock', width='stretch'):
-        ss['unlocked'] = False
+with reset_col:
+    # Dropping every stored key puts units, currency, pipeline, location,
+    # scenarios and chart toggles back to their first-load values in one go.
+    # Safe here because no keyed widget has been instantiated yet this run.
+    if st.button('Reset', width='stretch'):
+        for k in list(ss.keys()):
+            del ss[k]
         st.rerun()
 
 us = units == 'US'

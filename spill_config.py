@@ -9,16 +9,10 @@ are per US GALLON in the source and converted internally - the only imperial
 data in the model.
 """
 
-# --- screen lock -----------------------------------------------------------
-# NOT security. This file is downloaded by the browser and readable by anyone
-# who visits the site. Real access control is Cloudflare Access, in front of
-# the whole thing.
-AUTH_USER = 'leakadmin'
-AUTH_PASS = 'pipewise'
-
 # --- wording ---------------------------------------------------------------
+# No in-app sign-in. Access control is Cloudflare Access, in front of the
+# whole thing - anyone who reaches this page is already through it.
 APP_TITLE = 'Release Cost Estimator'
-LOCK_PROMPT = 'Sign in to run the model.'
 DISCLAIMER = ('Order-of-magnitude planning estimate, not a quotation or a '
               'liability assessment. Based on Etkin (2004) EPA BOSCEM unit '
               'costs. All figures in %d dollars.')
