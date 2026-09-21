@@ -94,6 +94,12 @@ def duration(hours):
 ss.setdefault('rows', defaults())
 ss.setdefault('seq', 0)
 
+# Every widget key carries this. Bumping it mints new widget IDs, which is the
+# only reliable way to make a field fall back to its value/index parameter -
+# clearing session_state alone leaves the stored widget value in place.
+ss.setdefault('nonce', 0)
+nk = '_%d' % ss['nonce']
+
 ss.setdefault('units', cfg.DEFAULT_UNITS)
 ss.setdefault('currency', cfg.DEFAULT_CURRENCY)
 
@@ -104,27 +110,32 @@ with head:
                 unsafe_allow_html=True)
 with unit_col:
     units = (st.segmented_control('Units', ['SI', 'US'], default=ss['units'],
+                                  key='units' + nk,
                                   label_visibility='collapsed')
              if cfg.SHOW_UNIT_TOGGLE else cfg.DEFAULT_UNITS) or ss['units']
 # Changing units pulls the currency with it. Changing currency does not pull
-# the units, so an odd pairing stays possible if someone wants it.
+# the units, so an odd pairing stays possible if someone wants it. The nonce
+# bump is what lets the currency control pick up the pulled value.
 if units != ss['units']:
     ss['units'] = units
     ss['currency'] = cfg.UNITS_CURRENCY[units]
+    ss['nonce'] += 1
     st.rerun()
 with cur_col:
     currency = st.segmented_control('Currency', ['CAD', 'USD'],
                                     default=ss['currency'],
+                                    key='currency' + nk,
                                     label_visibility='collapsed') \
         or ss['currency']
 ss['currency'] = currency
 with reset_col:
-    # Dropping every stored key puts units, currency, pipeline, location,
-    # scenarios and chart toggles back to their first-load values in one go.
-    # Safe here because no keyed widget has been instantiated yet this run.
-    if st.button('Reset', width='stretch'):
+    # Clearing state puts the model inputs back to config defaults; carrying a
+    # bumped nonce across the wipe is what makes the fields on screen follow.
+    if st.button('Reset', key='reset' + nk, width='stretch'):
+        n = ss['nonce'] + 1
         for k in list(ss.keys()):
             del ss[k]
+        ss['nonce'] = n
         st.rerun()
 
 us = units == 'US'
@@ -138,7 +149,7 @@ with panel:
     ss.setdefault('substance', cfg.DEFAULT_SUBSTANCE)
     substance = st.selectbox('Product', subs,
                              index=subs.index(ss['substance']),
-                             key='sel_substance')
+                             key='sel_substance' + nk)
     ss['substance'] = substance
 
     ss.setdefault('flow_m3d', cfg.DEFAULT_FLOW_M3D)
@@ -148,7 +159,7 @@ with panel:
     shown = st.number_input(
         'Flow rate (%s)' % ('BBL/day' if us else 'm\u00b3/day'),
         min_value=lo, max_value=hi, value=val,
-        step=100.0, format='%.0f', key='flow_%s' % units)
+        step=100.0, format='%.0f', key='flow_%s%s' % (units, nk))
     ss.flow_m3d = shown * f
 
     st.markdown('<p class="sx-group">Location</p>', unsafe_allow_html=True)
@@ -157,7 +168,7 @@ with panel:
     ss.setdefault('terrain', cfg.DEFAULT_TERRAIN)
     terrain = st.selectbox('Terrain', terrains,
                            index=terrains.index(ss['terrain']),
-                           key='sel_terrain')
+                           key='sel_terrain' + nk)
     ss['terrain'] = terrain
 
     ss.setdefault('remote_km', cfg.DEFAULT_REMOTENESS_KM)
@@ -167,14 +178,14 @@ with panel:
     shown = st.number_input(
         'Distance from road access (%s)' % ('miles' if us else 'km'),
         min_value=lo, max_value=hi, value=val,
-        step=1.0, format='%.1f', key='remote_%s' % units)
+        step=1.0, format='%.1f', key='remote_%s%s' % (units, nk))
     ss.remote_km = shown * f
 
     juris = list(cfg.JURISDICTION)
     ss.setdefault('jurisdiction', cfg.DEFAULT_JURISDICTION)
     jurisdiction = st.selectbox('Jurisdiction', juris,
                                 index=juris.index(ss['jurisdiction']),
-                                key='sel_jurisdiction')
+                                key='sel_jurisdiction' + nk)
     ss['jurisdiction'] = jurisdiction
 
     st.markdown('<p class="sx-group">Scenarios</p>', unsafe_allow_html=True)
@@ -191,7 +202,7 @@ with panel:
 
     drop = None
     for i, row in enumerate(ss['rows']):
-        k = 'r%d_%d' % (ss['seq'], i)
+        k = 'r%s_%d_%d' % (nk, ss['seq'], i)
         nm, rm = st.columns([5, 1], vertical_alignment='bottom')
         row['name'] = nm.text_input('Name', value=row['name'],
                                     key=k + 'n', label_visibility='collapsed')
@@ -225,7 +236,7 @@ with panel:
 
     st.markdown('<p class="sx-group">Chart</p>', unsafe_allow_html=True)
     show_refs = st.toggle('Volume benchmarks', value=cfg.SHOW_BENCHMARKS,
-                          key='show_refs')
+                          key='show_refs' + nk)
 
 
 def cost_at(v):
